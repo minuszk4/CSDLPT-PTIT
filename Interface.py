@@ -30,7 +30,6 @@ def create_db(dbname, user='postgres', password='1'):
     else:
         print("Database %s already exists." % dbname)
     cur.close()
-    con.close()
 
 def loadratings(ratingstablename, ratingsfilepath,openconnection):
     cur = openconnection.cursor()
