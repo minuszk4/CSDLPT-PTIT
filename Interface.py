@@ -15,7 +15,7 @@ def getopenconnection(user='postgres', password='1', dbname='csdlpt'):
             print("Lỗi khi kết nối đến database:", e)
             return None
 
-def create_db(dbname, user='postgres', password='1'):
+def create_db(dbname='postgres', user='postgres', password='1'):
     con = getopenconnection(user=user, password=password, dbname='postgres')
     if con is None:
         print("Không thể kết nối đến postgres để tạo database")
@@ -31,45 +31,45 @@ def create_db(dbname, user='postgres', password='1'):
         print("Database %s already exists." % dbname)
     cur.close()
 
-def loadratings(ratingstablename, ratingsfilepath,openconnection):
-    cur = openconnection.cursor()
-    cur.execute("DROP TABLE IF EXISTS " + ratingstablename + ";")
-    cur.execute("CREATE TABLE " + ratingstablename + "(userid integer, extra1 char, movieid integer, extra2 char, rating float, extra3 char, timestamp bigint);")
-    cur.execute("TRUNCATE TABLE " + ratingstablename + ";")
-    openconnection.commit()
+def loadratings(tablename, ratingsfilepath,connection):
+    cur = connection.cursor()
+    cur.execute("DROP TABLE IF EXISTS " + tablename + ";")
+    cur.execute("CREATE TABLE " + tablename + "(userid integer, extra1 char, movieid integer, extra2 char, rating float, extra3 char, timestamp bigint);")
+    cur.execute("TRUNCATE TABLE " + tablename + ";")
+    connection.commit()
     try:
-        cur.copy_from(open(ratingsfilepath), ratingstablename, sep=':')
-        cur.execute("ALTER TABLE " + ratingstablename + " DROP COLUMN extra1, DROP COLUMN extra2, DROP COLUMN extra3, DROP COLUMN timestamp;")
+        cur.copy_from(open(ratingsfilepath), tablename, sep=':')
+        cur.execute("ALTER TABLE " + tablename + " DROP COLUMN extra1, DROP COLUMN extra2, DROP COLUMN extra3, DROP COLUMN timestamp;")
     except IOError as e:
         print("Lỗi khi đọc file:", e)
         cur.close()
         return
     cur.close()
-    openconnection.commit()
+    connection.commit()
 
-def rangepartition(ratingstablename, numberofpartitions,openconnection):
-    if numberofpartitions <= 0:
+def rangepartition(tablename, N,connection):
+    if N <= 0:
         print("Số phân vùng phải lớn hơn 0")
         return
     
-    delta = 5.0 / numberofpartitions
-    RANGE_TABLE_PREFIX = 'range_part'
+    delta = 5.0 / N
+    RPREFIX = 'range_part'
     
-    with openconnection.cursor() as cur:
+    with connection.cursor() as cur:
         cur.execute("""
             SELECT tablename 
             FROM pg_tables 
             WHERE tablename LIKE %s;
-        """, (RANGE_TABLE_PREFIX + '%',))
+        """, (N + '%',))
         old_tables = cur.fetchall()
         
         for (table_name,) in old_tables:
             cur.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
         
-        for i in range(numberofpartitions):
+        for i in range(N):
             minRange = i * delta
             maxRange = minRange + delta
-            table_name = RANGE_TABLE_PREFIX + str(i)
+            table_name = N + str(i)
             
             cur.execute(f"""
                 CREATE TABLE {table_name} (
@@ -82,75 +82,75 @@ def rangepartition(ratingstablename, numberofpartitions,openconnection):
             if i == 0:
                 sql = f"""
                     INSERT INTO {table_name} (userid, movieid, rating)
-                    SELECT userid, movieid, rating FROM {ratingstablename}
+                    SELECT userid, movieid, rating FROM {tablename}
                     WHERE rating >= %s AND rating <= %s;
                 """
                 params = (minRange, maxRange)
             else:
                 sql = f"""
                     INSERT INTO {table_name} (userid, movieid, rating)
-                    SELECT userid, movieid, rating FROM {ratingstablename}
+                    SELECT userid, movieid, rating FROM {tablename}
                     WHERE rating > %s AND rating <= %s;
                 """
                 params = (minRange, maxRange)
             
             cur.execute(sql, params)
     
-    openconnection.commit()
+    connection.commit()
 
-def roundrobinpartition(ratingstablename, numberofpartitions ,openconnection):
-    if numberofpartitions <= 0:
+def roundrobinpartition(tablename, N ,connection):
+    if N <= 0:
         print("Số phân vùng phải lớn hơn 0")
         return
-    cur = openconnection.cursor()
-    RROBIN_TABLE_PREFIX = 'rrobin_part'
-    for i in range(numberofpartitions):
-        table_name = RROBIN_TABLE_PREFIX + str(i)
+    cur = connection.cursor()
+    PREFIX = 'rrobin_part'
+    for i in range(N):
+        table_name = PREFIX + str(i)
         cur.execute("DROP TABLE IF EXISTS " + table_name + ";")
         cur.execute("CREATE TABLE " + table_name + " (userid integer, movieid integer, rating float);")
         cur.execute(
             "INSERT INTO " + table_name + " (userid, movieid, rating) "
-            "SELECT userid, movieid, rating FROM (SELECT userid, movieid, rating, ROW_NUMBER() OVER () as rnum FROM " + ratingstablename + ") as temp "
-            "WHERE mod(temp.rnum - 1, %s) = %s;", (numberofpartitions, i))
+            "SELECT userid, movieid, rating FROM (SELECT userid, movieid, rating, ROW_NUMBER() OVER () as rnum FROM " + tablename + ") as temp "
+            "WHERE mod(temp.rnum - 1, %s) = %s;", (N, i))
     cur.close()
-    openconnection.commit()
+    connection.commit()
 
-def roundrobininsert(ratingstablename, userid, itemid, rating,openconnection):
-    cur = openconnection.cursor()
-    RROBIN_TABLE_PREFIX = 'rrobin_part'
+def roundrobininsert(ratingstablename, userid, itemid, rating,connection):
+    cur = connection.cursor()
+    PREFIX = 'rrobin_part'
     cur.execute("INSERT INTO " + ratingstablename + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.execute("SELECT count(*) FROM " + ratingstablename + ";")
     total_rows = cur.fetchone()[0]
-    numberofpartitions = count_partitions(openconnection, RROBIN_TABLE_PREFIX)
-    if numberofpartitions == 0:
+    N = count_partitions(connection, PREFIX)
+    if N == 0:
         print("Không có bảng phân vùng round-robin nào tồn tại")
         cur.close()
         return
-    index = (total_rows - 1) % numberofpartitions
-    table_name = RROBIN_TABLE_PREFIX + str(index)
+    index = (total_rows - 1) % N
+    table_name = PREFIX + str(index)
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.close()
-    openconnection.commit()
+    connection.commit()
 
-def rangeinsert( ratingstablename, userid, itemid, rating,openconnection):
-    cur = openconnection.cursor()
-    RANGE_TABLE_PREFIX = 'range_part'
-    numberofpartitions = count_partitions(openconnection, RANGE_TABLE_PREFIX)
-    if numberofpartitions == 0:
+def rangeinsert(tablename, userid, itemid, rating,connection):
+    cur = connection.cursor()
+    PREFIX = 'range_part'
+    N = count_partitions(connection, PREFIX)
+    if N == 0:
         print("Không có bảng phân vùng range nào tồn tại")
         cur.close()
         return
-    delta = 5.0 / numberofpartitions
+    delta = 5.0 / N
     index = int(rating / delta)
     if rating % delta == 0 and index != 0:
         index -= 1
-    table_name = RANGE_TABLE_PREFIX + str(index)
+    table_name = PREFIX + str(index)
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.close()
-    openconnection.commit()
+    connection.commit()
 
-def count_partitions(openconnection, prefix):
-    cur = openconnection.cursor()
+def count_partitions(connection, prefix):
+    cur = connection.cursor()
     cur.execute("SELECT count(*) FROM pg_stat_user_tables WHERE relname LIKE %s;", (prefix + '%',))
     count = cur.fetchone()[0]
     cur.close()
