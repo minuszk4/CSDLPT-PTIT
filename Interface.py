@@ -53,7 +53,7 @@ def rangepartition(tablename, N,connection):
         return
     
     delta = 5.0 / N
-    RPREFIX = 'range_part'
+    PREFIX = 'range_part'
     
     with connection.cursor() as cur:
         cur.execute("""
@@ -69,7 +69,7 @@ def rangepartition(tablename, N,connection):
         for i in range(N):
             minRange = i * delta
             maxRange = minRange + delta
-            table_name = N + str(i)
+            table_name = PREFIX + str(i)
             
             cur.execute(f"""
                 CREATE TABLE {table_name} (
@@ -155,7 +155,6 @@ def count_partitions(connection, prefix):
     count = cur.fetchone()[0]
     cur.close()
     return count
-
 def main():
     create_db('csdlpt')
     con = getopenconnection()
@@ -165,7 +164,7 @@ def main():
 
     try:
         loadratings(con, 'ratings', 'data/ratings.dat')
-        rangepartition(con, 'ratings', 4)
+        rangepartition(con, 'ratings', 5)
         roundrobinpartition(con, 'ratings', 5)
         roundrobininsert(con, 'ratings', 1, 1, 4.5)
         rangeinsert(con, 'ratings', 2, 2, 3.0)
