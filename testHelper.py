@@ -191,7 +191,9 @@ def testloadratings(MyAssignment, ratingstablename, filepath, openconnection, ro
     :return:Raises exception if any test fails
     """
     try:
-        MyAssignment.loadratings(ratingstablename,filepath,openconnection)
+        MyAssignment.LoadRatings(ratingstablename,filepath,openconnection)
+        # MyAssignment.loadratings(filepath,openconnection)
+
         # Test 1: Count the number of rows inserted
         with openconnection.cursor() as cur:
             cur.execute('SELECT COUNT(*) from {0}'.format(ratingstablename))
@@ -216,7 +218,7 @@ def testrangepartition(MyAssignment, ratingstablename, n, openconnection, partit
     """
 
     try:
-        MyAssignment.rangepartition(ratingstablename, n, openconnection)
+        MyAssignment.Range_Partition(ratingstablename, n, openconnection)
         testrangeandrobinpartitioning(n, openconnection, RANGE_TABLE_PREFIX, partitionstartindex, ACTUAL_ROWS_IN_INPUT_FILE)
         testEachRangePartition(ratingstablename, n, openconnection, RANGE_TABLE_PREFIX)
         return [True, None]
@@ -236,7 +238,7 @@ def testroundrobinpartition(MyAssignment, ratingstablename, numberofpartitions, 
     :return:Raises exception if any test fails
     """
     try:
-        MyAssignment.roundrobinpartition(ratingstablename, numberofpartitions, openconnection)
+        MyAssignment.RoundRobin_Partition(ratingstablename, numberofpartitions, openconnection)
         testrangeandrobinpartitioning(numberofpartitions, openconnection, RROBIN_TABLE_PREFIX, partitionstartindex, ACTUAL_ROWS_IN_INPUT_FILE)
         testEachRoundrobinPartition(ratingstablename, numberofpartitions, openconnection, RROBIN_TABLE_PREFIX)
     except Exception as e:
@@ -257,7 +259,7 @@ def testroundrobininsert(MyAssignment, ratingstablename, userid, itemid, rating,
     """
     try:
         expectedtablename = RROBIN_TABLE_PREFIX + expectedtableindex
-        MyAssignment.roundrobininsert(ratingstablename, userid, itemid, rating, openconnection)
+        MyAssignment.RoundRobin_Insert(ratingstablename, userid, itemid, rating, openconnection)
         if not testrangerobininsert(expectedtablename, itemid, openconnection, rating, userid):
             raise Exception(
                 'Round robin insert failed! Couldnt find ({0}, {1}, {2}) tuple in {3} table'.format(userid, itemid, rating,
@@ -281,7 +283,7 @@ def testrangeinsert(MyAssignment, ratingstablename, userid, itemid, rating, open
     """
     try:
         expectedtablename = RANGE_TABLE_PREFIX + expectedtableindex
-        MyAssignment.rangeinsert(ratingstablename, userid, itemid, rating, openconnection)
+        MyAssignment.Range_Insert(ratingstablename, userid, itemid, rating, openconnection)
         if not testrangerobininsert(expectedtablename, itemid, openconnection, rating, userid):
             raise Exception(
                 'Range insert failed! Couldnt find ({0}, {1}, {2}) tuple in {3} table'.format(userid, itemid, rating,
