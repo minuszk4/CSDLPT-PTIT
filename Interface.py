@@ -60,7 +60,7 @@ def rangepartition(tablename, N,connection):
             SELECT tablename 
             FROM pg_tables 
             WHERE tablename LIKE %s;
-        """, (N + '%',))
+        """, (PREFIX + '%',))
         old_tables = cur.fetchall()
         
         for (table_name,) in old_tables:
@@ -128,6 +128,7 @@ def roundrobininsert(ratingstablename, userid, itemid, rating,connection):
         return
     index = (total_rows - 1) % N
     table_name = PREFIX + str(index)
+    cur.execute("INSERT INTO ratings (userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.close()
     connection.commit()
@@ -145,6 +146,7 @@ def rangeinsert(tablename, userid, itemid, rating,connection):
     if rating % delta == 0 and index != 0:
         index -= 1
     table_name = PREFIX + str(index)
+    cur.execute("INSERT INTO ratings (userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.close()
     connection.commit()
