@@ -178,9 +178,15 @@ def Range_Insert(ratingstable, userid, itemid, rating,connection):
         cur.close()
         return
     delta = 5.0 / N
-    index = min(int(rating / delta),N-1)
-    if rating % delta == 0 and index != 0:
-        index -= 1
+    if rating == 5.0:
+        index = N - 1
+    elif rating == 0.0:
+        index = 0
+    else:
+        index = int(rating / delta)
+        if rating <= (index * delta):
+            index -= 1
+
     table_name = PREFIX + str(index)
     cur.execute("INSERT INTO "+ratingstable+" (userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
