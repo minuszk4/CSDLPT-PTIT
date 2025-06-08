@@ -10,8 +10,10 @@ RROBIN_TABLE_PREFIX = 'rrobin_part'
 USER_ID_COLNAME = 'userid'
 MOVIE_ID_COLNAME = 'movieid'
 RATING_COLNAME = 'rating'
-INPUT_FILE_PATH = 'data/ratings.dat'
-ACTUAL_ROWS_IN_INPUT_FILE = 10000054
+INPUT_FILE_PATH = 'data/test_data.dat' #for test data
+ACTUAL_ROWS_IN_INPUT_FILE = 20
+# INPUT_FILE_PATH = 'data/ratings.dat'
+# ACTUAL_ROWS_IN_INPUT_FILE = 10000054
 
 import psycopg2
 import traceback
@@ -32,7 +34,7 @@ if __name__ == '__main__':
                 print("loadratings function pass!")
             else:
                 print("loadratings function fail!")
-
+            choice = input('Press enter to continue...')
             [result, e] = testHelper.testrangepartition(MyAssignment, RATINGS_TABLE, 5, conn, 0, ACTUAL_ROWS_IN_INPUT_FILE)
             if result :
                 print("rangepartition function pass!")
@@ -46,7 +48,7 @@ if __name__ == '__main__':
                 print("rangeinsert function pass!")
             else:
                 print("rangeinsert function fail!")
-            
+            choice=input('Press enter to continue...')
             testHelper.deleteAllPublicTables(conn)
             MyAssignment.LoadRatings(RATINGS_TABLE, INPUT_FILE_PATH, conn)
 
@@ -57,10 +59,10 @@ if __name__ == '__main__':
                 print("roundrobinpartition function fail")
 
             # ALERT:: Change the partition index according to your testing sequence.
-            # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '0')
+            [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '0')
             # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '1')
             # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '2')
-            [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '4')
+            # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '4')
 
             if result :
                 print("roundrobininsert function pass!")

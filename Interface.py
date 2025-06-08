@@ -151,19 +151,20 @@ def RoundRobin_Insert(ratingstable, userid, itemid, rating,connection):
     cur = connection.cursor()
     PREFIX = 'rrobin_part'
     cur.execute("INSERT INTO " + ratingstable + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
-    cur.execute("SELECT count(*) FROM " + ratingstable + ";")
-    total_rows = cur.fetchone()[0]
-    # N = count_partitions(connection, PREFIX)
-    N = get_partition_count_from_metadata(connection, 'rrobin')
+    cur.execute("SELECT partitioncount, totalinserts FROM partitionmetadata WHERE partitiontype = 'rrobin';")
 
-    if N == 0:
-        print("Không có bảng phân vùng round-robin nào tồn tại")
+    result = cur.fetchone()
+    if not result:
+        print("Không tìm thấy metadata cho round-robin.")
         cur.close()
         return
-    index = (total_rows - 1) % N
+    N, totalinserts = result
+    index = totalinserts % N
+
     table_name = PREFIX + str(index)
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.close()
+    update_total_inserts(connection, 'rrobin')
     connection.commit()
 
 
@@ -183,6 +184,7 @@ def Range_Insert(ratingstable, userid, itemid, rating,connection):
     table_name = PREFIX + str(index)
     cur.execute("INSERT INTO "+ratingstable+" (userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.execute("INSERT INTO " + table_name + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
+    update_total_inserts(connection, 'range')
     cur.close()
     connection.commit()
 
@@ -197,8 +199,10 @@ def init_metadata_table(connection):
     with connection.cursor() as cur:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS partitionmetadata (
-                partitiontype TEXT PRIMARY KEY,
-                partitioncount INTEGER
+                partitiontype TEXT PRIMARY KEY, 
+                partitioncount INTEGER NOT NULL,
+                totalinserts INTEGER DEFAULT 0,     
+                nextindex INTEGER DEFAULT 0        
             );
         """)
         connection.commit()
@@ -211,6 +215,14 @@ def update_metadata(connection, partition_type, count):
             ON CONFLICT (partitiontype) DO UPDATE
             SET partitioncount = EXCLUDED.partitioncount;
         """, (partition_type, count))
+        connection.commit()
+def update_total_inserts(connection, partition_type):
+    with connection.cursor() as cur:
+        cur.execute("""
+            UPDATE partitionmetadata
+            SET totalinserts = totalinserts + 1
+            WHERE partitiontype = %s;
+        """, (partition_type,))
         connection.commit()
 
 def get_partition_count_from_metadata(connection, partition_type):
