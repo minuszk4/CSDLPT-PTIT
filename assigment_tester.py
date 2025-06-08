@@ -10,10 +10,10 @@ RROBIN_TABLE_PREFIX = 'rrobin_part'
 USER_ID_COLNAME = 'userid'
 MOVIE_ID_COLNAME = 'movieid'
 RATING_COLNAME = 'rating'
-INPUT_FILE_PATH = 'data/test_data.dat' #for test data
-ACTUAL_ROWS_IN_INPUT_FILE = 20
-# INPUT_FILE_PATH = 'data/ratings.dat'
-# ACTUAL_ROWS_IN_INPUT_FILE = 10000054
+# INPUT_FILE_PATH = 'data/test_data.dat' #for test data
+# ACTUAL_ROWS_IN_INPUT_FILE = 20
+INPUT_FILE_PATH = 'data/ratings.dat'
+ACTUAL_ROWS_IN_INPUT_FILE = 10000054
 
 import psycopg2
 import traceback
@@ -40,7 +40,7 @@ if __name__ == '__main__':
                 print("rangepartition function pass!")
             else:
                 print("rangepartition function fail!")
-
+            # choice = input('Press enter to continue...')
             # ALERT:: Use only one at a time i.e. uncomment only one line at a time and run the script
             [result, e] = testHelper.testrangeinsert(MyAssignment, RATINGS_TABLE, 100, 2, 3, conn, '2')
             # [result, e] = testHelper.testrangeinsert(MyAssignment, RATINGS_TABLE, 100, 2, 0, conn, '0')
@@ -57,12 +57,12 @@ if __name__ == '__main__':
                 print("roundrobinpartition function pass!")
             else:
                 print("roundrobinpartition function fail")
-
+            # choice = input('Press enter to continue...')
             # ALERT:: Change the partition index according to your testing sequence.
-            [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '0')
+            # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '0')
             # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '1')
             # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '2')
-            # [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '4')
+            [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '4')
 
             if result :
                 print("roundrobininsert function pass!")

@@ -117,7 +117,6 @@ def Range_Partition(ratingstable, N,connection):
     connection.commit()
 
 def RoundRobin_Partition(ratingstable, N ,connection):
-
     if N <= 0:
         print("Số phân vùng phải lớn hơn 0")
         return
@@ -152,13 +151,14 @@ def RoundRobin_Insert(ratingstable, userid, itemid, rating,connection):
     PREFIX = 'rrobin_part'
     cur.execute("INSERT INTO " + ratingstable + "(userid, movieid, rating) VALUES (%s, %s, %s);", (userid, itemid, rating))
     cur.execute("SELECT partitioncount, totalinserts FROM partitionmetadata WHERE partitiontype = 'rrobin';")
-
     result = cur.fetchone()
     if not result:
         print("Không tìm thấy metadata cho round-robin.")
         cur.close()
         return
+    
     N, totalinserts = result
+    print(N,totalinserts)
     index = totalinserts % N
 
     table_name = PREFIX + str(index)
@@ -178,7 +178,7 @@ def Range_Insert(ratingstable, userid, itemid, rating,connection):
         cur.close()
         return
     delta = 5.0 / N
-    index = int(rating / delta)
+    index = min(int(rating / delta),N-1)
     if rating % delta == 0 and index != 0:
         index -= 1
     table_name = PREFIX + str(index)
@@ -197,15 +197,28 @@ def Range_Insert(ratingstable, userid, itemid, rating,connection):
 
 def init_metadata_table(connection):
     with connection.cursor() as cur:
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS partitionmetadata (
                 partitiontype TEXT PRIMARY KEY, 
                 partitioncount INTEGER NOT NULL,
-                totalinserts INTEGER DEFAULT 0,     
-                nextindex INTEGER DEFAULT 0        
+                totalinserts INTEGER DEFAULT 0     
             );
         """)
         connection.commit()
+        cur.execute("SELECT COUNT(*) FROM ratings;")
+        total_rows = cur.fetchone()[0]
+        # print("total_rows:", total_rows)
+        for partition_type in ['range', 'rrobin']:
+            cur.execute("""
+                INSERT INTO partitionmetadata (partitiontype, partitioncount, totalinserts)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (partitiontype) DO UPDATE
+                SET totalinserts = EXCLUDED.totalinserts;
+            """, (partition_type, 0, total_rows))
+
+        connection.commit()
+
 
 def update_metadata(connection, partition_type, count):
     with connection.cursor() as cur:
@@ -216,6 +229,7 @@ def update_metadata(connection, partition_type, count):
             SET partitioncount = EXCLUDED.partitioncount;
         """, (partition_type, count))
         connection.commit()
+
 def update_total_inserts(connection, partition_type):
     with connection.cursor() as cur:
         cur.execute("""
@@ -240,10 +254,10 @@ def main():
 
     try:
         LoadRatings('ratings', 'data/ratings.dat',con)
-        Range_Partition('ratings', 5,con)
+        Range_Partition('ratings', 3,con)
         RoundRobin_Partition('ratings', 5,con)
         RoundRobin_Insert('ratings', 1, 1, 4.5,con)
-        Range_Insert('ratings', 2, 2, 3.0,con)
+        Range_Insert('ratings', 2, 2, 5.0,con)
     except Exception as e:
         print("Lỗi trong quá trình xử lý:", e)
     finally:
